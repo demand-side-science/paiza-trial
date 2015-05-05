@@ -1,16 +1,12 @@
 package s.search_island
 
+import scala.collection.mutable
+
 trait Parser {
   def parse: Solver = {
     val Array(m, n) = readLine().split(' ').map(_.toInt)
-    val xs = for {
-      i <- 0 until n
-      bs = readLine().split(' ')
-      j <- 0 until m if bs(j) == "1"
-    } yield {
-      (i, j)
-    }
-    Solver(xs.toSet)
+    val xss = (1 to n).map(_ => readLine().split(' ').map(_ == "1").toSeq)
+    Solver(xss)
   }
 }
 
@@ -22,61 +18,38 @@ object Main extends App with Parser {
   parse.solve.print()
 }
 
-case class Solver(xs: Set[(Int, Int)]) {
-
-  @annotation.tailrec
-  private def f(queue: List[(Int, Int)], sofar: Set[(Int, Int)]): Set[(Int, Int)] = queue match {
-    case Nil => sofar
-    case (x, y) :: t =>
-      val q = List((-1, 0), (1, 0), (0, -1), (0, 1)).map { case (dx, dy) => (x + dx, y + dy)}.filter(sofar.contains)
-      f(q ::: t, sofar - ((x, y)))
-  }
-
-  @annotation.tailrec
-  private def g(ys: Set[(Int, Int)], sofar: Int): Int = ys.headOption match {
-    case None => sofar
-    case Some((x, y)) => g(f(List((x, y)), ys), sofar + 1)
-  }
-
-  def solve: Result = {
-    Result(g(xs, 0))
-  }
-}
-
-
-
-
-case class Solver2(xss: Seq[Seq[Boolean]]) {
+case class Solver(xss: Seq[Seq[Boolean]]) {
   val n = xss.length
   val m = xss.head.length
 
-  private def isBlack(yss: Seq[Seq[Boolean]], x: Int, y: Int): Boolean =
-    (0 until n).contains(x) && (0 until m).contains(y) && yss(x)(y)
+  val xs = new mutable.ArrayBuffer[Boolean] ++= xss.flatten
+
+  private def isBlack(x: Int, y: Int): Boolean =
+    (0 until n).contains(x) && (0 until m).contains(y) && xs(x * m + y)
 
   @annotation.tailrec
-  private def f(queue: List[(Int, Int)], sofar: Seq[Seq[Boolean]]): Seq[Seq[Boolean]] = queue match {
+  private def f(queue: List[(Int, Int)]): Unit = queue match {
     case Nil =>
-      sofar
     case (x, y) :: t =>
-      val nq = List((-1, 0), (1, 0), (0, -1), (0, 1))
+      val q = List((-1, 0), (1, 0), (0, -1), (0, 1))
         .map { case (dx, dy) => (x + dx, y + dy)}
-        .filter { case (nx, ny) => isBlack(sofar, nx, ny)}
-      f(t ::: nq, sofar.updated(x, sofar(x).updated(y, false)))
+        .filter { case (nx, ny) => isBlack(nx, ny)}
+      xs(x * m + y) = false
+      f(q ::: t)
   }
-
-  private def getNext(x: Int, y: Int): (Int, Int) = if (y == m - 1) (x + 1, 0) else (x, y + 1)
 
   @annotation.tailrec
-  private def g(yss: Seq[Seq[Boolean]], xy: (Int, Int), sofar: Int): Int = xy match {
-    case (x, _) if x >= n =>
+  private def g(i: Int, sofar: Int): Int =
+    if (i >= n * m) {
       sofar
-    case (x, y) if isBlack(yss, x, y) =>
-      g(f(List((x, y)), yss), getNext(x, y), sofar + 1)
-    case (x, y) =>
-      g(yss, getNext(x, y), sofar)
-  }
+    } else if (xs(i)) {
+      f(List((i / m, i % m)))
+      g(i + 1, sofar + 1)
+    } else {
+      g(i + 1, sofar)
+    }
 
   def solve: Result = {
-    Result(g(xss, (0, 0), 0))
+    Result(g(0, 0))
   }
 }
